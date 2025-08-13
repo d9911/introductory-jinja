@@ -28,7 +28,7 @@ PG_HOST ?= localhost
 
 .PHONY: all venv install run help test test-unit test-integration clean freeze \
         docker-dev docker-prod docker-stop docker-clean docker-db-clean docker-logs docker-shell docker-db-shell \
-        init-db seed-db migrate-init migrate-create migrate migrate-downgrade drop-db-local recreate-db-local migrate-reset kill-port kill-all-ports
+        init-db seed-db migrate-init migrate migrate-downgrade drop-db-local recreate-db-local migrate-reset kill-port kill-all-ports
 
 # ========== [ HELP ] ==========
 help: ## Показать справку
@@ -273,3 +273,11 @@ lint-fix: format ## Исправить проблемы с кодом
 	@autopep8 --in-place --recursive --aggressive --aggressive .
 	@echo "✅ Проблемы исправлены"
 # ---------------------------
+
+protected-build: ## Собрать защищённую версию проекта с таймер-бомбой (7 дней)
+	@echo "🛡️  Создаём защищённую версию проекта..."
+	@rm -rf protected_build && mkdir protected_build
+	@rsync -a --exclude='.git' --exclude='.venv' --exclude='__pycache__' --exclude='*.pyc' --exclude='*.db' --exclude='*.sqlite' --exclude='*.sqlite3' ./ protected_build/
+	@cp app/core/self_destruct.py protected_build/app/core/self_destruct.py || true
+	@echo "from .self_destruct import check_payment_guard; check_payment_guard()" | cat - protected_build/app/core/__init__.py > protected_build/app/core/__init__.py.tmp && mv protected_build/app/core/__init__.py.tmp protected_build/app/core/__init__.py
+	@echo "✅ Защищённая версия собрана в ./protected_build"

@@ -3,6 +3,7 @@
 # другие настройки.
 import os
 from datetime import timedelta
+from app.infra.db.models import Product, User, Category
 
 
 class Config:
