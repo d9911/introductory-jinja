@@ -22,11 +22,12 @@ FLASK := $(VENV)/bin/flask
 REQ := requirements.txt
 DEFAULT_PORT := 5006
 DB_ENV ?= local
+LOCAL_DATABASE_URL ?= sqlite:///app.db
 PG_DB ?= jinja_app
 PG_USER ?= postgres
 PG_HOST ?= localhost
 
-.PHONY: all venv install run help test test-unit test-integration clean freeze \
+.PHONY: venv install run dev setup help test test-unit test-integration clean freeze \
         docker-dev docker-prod docker-stop docker-clean docker-db-clean docker-logs docker-shell docker-db-shell \
         init-db seed-db migrate-init migrate migrate-downgrade drop-db-local recreate-db-local migrate-reset kill-port kill-all-ports
 
@@ -39,19 +40,21 @@ help: ## Показать справку
 	@echo "  make migrate-reset DB_ENV=docker  # полный сброс БД в Docker"
 
 # ========== [ VENV & DEPENDENCIES ] ==========
-venv: ## Создать виртуальное окружение
+$(PIP):
 	@echo "⚙️  Создаём виртуальное окружение .venv..."
-	@python3 -m venv .venv
+	@python3 -m venv $(VENV)
 	@echo "✅ Окружение готово."
 
-install: ## Установить зависимости
+venv: $(PIP) ## Создать виртуальное окружение
+
+install: venv ## Создать окружение и установить зависимости
 	@echo "📦 Устанавливаем зависимости из requirements.txt..."
-	@.venv/bin/pip install --upgrade pip
-	@.venv/bin/pip install -r requirements.txt
+	@$(PY) -m pip install --upgrade pip
+	@$(PY) -m pip install -r $(REQ)
 	@echo "✅ Зависимости установлены."
 
-freeze: ## Заморозить зависимости
-	@.venv/bin/pip freeze > requirements.txt
+freeze: venv ## Заморозить зависимости
+	@$(PY) -m pip freeze > $(REQ)
 	@echo "✅ Зависимости заморожены в requirements.txt"
 
 # ========== [ RUN & DEV ] ==========
@@ -60,7 +63,7 @@ run: ## Запустить приложение локально
 	@lsof -ti:$(DEFAULT_PORT) | xargs kill -9 2>/dev/null || true
 	@echo "✅ Порт $(DEFAULT_PORT) свободен."
 	@echo "🚀 Запуск Flask на порту $(DEFAULT_PORT)..."
-	@FLASK_APP=run.py FLASK_ENV=development FLASK_RUN_PORT=$(DEFAULT_PORT) .venv/bin/flask run
+	@DATABASE_URL=$(LOCAL_DATABASE_URL) FLASK_APP=run.py FLASK_ENV=development FLASK_RUN_PORT=$(DEFAULT_PORT) $(FLASK) run
 # 		@echo "# Экспортируем переменные окружения:"
 # 	@echo "FLASK_APP=run.py \\"
 # 	@echo "        FLASK_ENV=development \\"
@@ -152,39 +155,41 @@ docker-db-shell: ## Войти в контейнер базы данных
 # ========== [ DB MANAGEMENT BLOCK ] ==========
 # --- Универсальные команды для локали и Docker ---
 ifeq ($(DB_ENV),docker)
-	DB_EXEC = docker-compose exec web flask
+DB_EXEC = docker-compose exec web flask
+DB_ENV_PREFIX =
 else
-	DB_EXEC = .venv/bin/flask
+DB_EXEC = $(FLASK)
+DB_ENV_PREFIX = DATABASE_URL=$(LOCAL_DATABASE_URL)
 endif
 
 init-db: ## Инициализировать базу данных (локально или в Docker)
 	@echo "Инициализация БД ($(DB_ENV))..."
-	@FLASK_APP=run.py $(DB_EXEC) init-db
+	@$(DB_ENV_PREFIX) FLASK_APP=run.py $(DB_EXEC) init-db
 	@echo "✅ База данных инициализирована."
 
 seed-db: ## Заполнить базу данных тестовыми данными (локально или в Docker)
 	@echo "Сидирование БД ($(DB_ENV))..."
-	@FLASK_APP=app.core:create_app $(DB_EXEC) seed-db
+	@$(DB_ENV_PREFIX) FLASK_APP=app.core:create_app $(DB_EXEC) seed-db
 	@echo "✅ База данных заполнена тестовыми данными."
 
 migrate-init: ## Инициализировать Flask-Migrate (локально или в Docker)
 	@echo "Инициализация миграций ($(DB_ENV))..."
-	@FLASK_APP=app.core:create_app $(DB_EXEC) db init
+	@$(DB_ENV_PREFIX) FLASK_APP=app.core:create_app $(DB_EXEC) db init
 	@echo "✅ Миграции инициализированы."
 
 migrate-create: ## Создать новую миграцию (локально или в Docker)
 	@echo "Создание миграции ($(DB_ENV))..."
-	@FLASK_APP=app.core:create_app $(DB_EXEC) db migrate -m "Auto migration"
+	@$(DB_ENV_PREFIX) FLASK_APP=app.core:create_app $(DB_EXEC) db migrate -m "Auto migration"
 	@echo "✅ Миграция создана."
 
 migrate: ## Применить миграции (локально или в Docker)
 	@echo "Применение миграций ($(DB_ENV))..."
-	@FLASK_APP=app.core:create_app $(DB_EXEC) db upgrade
+	@$(DB_ENV_PREFIX) FLASK_APP=app.core:create_app $(DB_EXEC) db upgrade
 	@echo "✅ Миграции применены."
 
 migrate-downgrade: ## Откатить миграцию (локально или в Docker)
 	@echo "Откат миграции ($(DB_ENV))..."
-	@FLASK_APP=app.core:create_app $(DB_EXEC) db downgrade prev
+	@$(DB_ENV_PREFIX) FLASK_APP=app.core:create_app $(DB_EXEC) db downgrade prev
 	@echo "✅ Миграция откатилась."
 
 # --- Только для локальной среды ---
@@ -214,8 +219,8 @@ ifeq ($(DB_ENV),docker)
 	@sleep 10
 	@echo "✅ Volume базы данных Docker пересоздан."
 endif
-	@FLASK_APP=app.core:create_app $(DB_EXEC) db upgrade
-	@FLASK_APP=app.core:create_app $(DB_EXEC) seed-db
+	@$(DB_ENV_PREFIX) FLASK_APP=app.core:create_app $(DB_EXEC) db upgrade
+	@$(DB_ENV_PREFIX) FLASK_APP=app.core:create_app $(DB_EXEC) seed-db
 	@echo "✅ База данных сброшена и заполнена тестовыми данными."
 
 # ========== [ END ] ==========

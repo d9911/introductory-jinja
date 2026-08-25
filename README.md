@@ -39,7 +39,7 @@ A comprehensive prototype demonstrating Jinja2 templating capabilities with Flas
 
 ### Prerequisites
 
-- Python 3.7+
+- Python 3.11+
 - Make (for using the Makefile)
 
 ### Quick Start
@@ -50,19 +50,13 @@ A comprehensive prototype demonstrating Jinja2 templating capabilities with Flas
    cd introductory-jinja
    ```
 
-2. **Set up the environment and install dependencies**
+2. **Create the environment, install dependencies, initialize the database, and run the application**
 
    ```bash
-   make install
+   make dev
    ```
 
-3. **Run the application**
-
-   ```bash
-   make run
-   ```
-
-4. **Open your browser and visit**
+3. **Open your browser and visit**
 
 ```bash
 http://localhost:5006
@@ -72,11 +66,15 @@ http://localhost:5006
 
 The project includes a comprehensive Makefile for easy development:
 
-- `make install` - Create virtual environment and install dependencies
+- `make dev` - Prepare and start the local development environment
+- `make install` - Create or reuse the virtual environment and install dependencies
 - `make run` - Start the Flask development server on port 5006
+- `make docker-dev` - Start the application and PostgreSQL with Docker Compose
 - `make freeze` - Update requirements.txt with current dependencies
-- `make clean` - Remove virtual environment and cache files
-- `make all` - Run install and start the server
+- `make clean` - Remove Python cache files
+
+Local development uses SQLite by default. The Docker workflow uses PostgreSQL
+from `docker-compose.yml`.
 
 ## 📁 Project Structure
 

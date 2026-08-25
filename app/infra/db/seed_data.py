@@ -32,7 +32,8 @@ def seed_database():
     ]
 
     for user in users:
-        db.session.add(user)
+        if User.query.filter_by(email=user.email).first() is None:
+            db.session.add(user)
 
     # Create categories
     categories = [
@@ -176,7 +177,8 @@ def seed_database():
     ]
 
     for category in categories:
-        db.session.add(category)
+        if Category.query.filter_by(name=category.name).first() is None:
+            db.session.add(category)
 
     # Commit to get IDs
     db.session.commit()
@@ -232,7 +234,8 @@ def seed_database():
     ]
 
     for product in products:
-        db.session.add(product)
+        if Product.query.filter_by(name=product.name).first() is None:
+            db.session.add(product)
 
     # Commit to get product IDs
     db.session.commit()
@@ -256,35 +259,25 @@ def seed_database():
     running_shoes = Product.query.filter_by(name="Running Shoes").first()
     t_shirt = Product.query.filter_by(name="T-Shirt").first()
 
-    # Add categories to products
-    if laptop and electronics:
-        laptop.categories.append(electronics)
-
-    if book and books:
-        book.categories.append(books)
-
-    if coffee_mug and kitchen:
-        coffee_mug.categories.append(kitchen)
-
-    if headphones and electronics:
-        headphones.categories.append(electronics)
-
-    if notebook and office:
-        notebook.categories.append(office)
-
-    if smartphone and electronics:
-        smartphone.categories.append(electronics)
-
-    if running_shoes and sports:
-        running_shoes.categories.append(sports)
-
-    if t_shirt and fashion:
-        t_shirt.categories.append(fashion)
+    # Add missing category relationships without duplicating existing links.
+    product_categories = (
+        (laptop, electronics),
+        (book, books),
+        (coffee_mug, kitchen),
+        (headphones, electronics),
+        (notebook, office),
+        (smartphone, electronics),
+        (running_shoes, sports),
+        (t_shirt, fashion),
+    )
+    for product, category in product_categories:
+        if product and category and category not in product.categories:
+            product.categories.append(category)
 
     # Final commit
     db.session.commit()
     print("Database seeded successfully!")
-    print(f"Created {len(users)} users")
-    print(f"Created {len(categories)} categories")
-    print(f"Created {len(products)} products")
-    print("Set up many-to-many relationships between products and categories")
+    print(f"Users available: {User.query.count()}")
+    print(f"Categories available: {Category.query.count()}")
+    print(f"Products available: {Product.query.count()}")
+    print("Product-category relationships are up to date")
